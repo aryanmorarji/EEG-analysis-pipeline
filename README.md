@@ -65,45 +65,17 @@ Generative AI was used for proofreading and providing general programming guidan
 Clone the repository:
 
 ```bash
-git clone [https://github.com/aryanmorarji/EEG-analsis-pipeline.git](https://github.com/aryanmorarji/EEG-analysis-pipeline.git)
+git clone [https://github.com/aryanmorarji/EEG-analysis-pipeline.git](https://github.com/aryanmorarji/EEG-analysis-pipeline.git)
 cd EEG-analysis-pipeline
 ```
 
-Create and activate a virtual environment:
+Install the required Python packages:
 
 ```bash
-python -m venv .venv
+python -m pip install -r requirements.txt
 ```
 
-On Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-On macOS or Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install the required packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Running the notebook
-
-Start Jupyter Notebook:
-
-```bash
-jupyter notebook
-```
-
-Alternatively, open the `.ipynb` file directly in Visual Studio Code with the Python and Jupyter extensions installed.
-
-Run the cells in order from beginning to end.
+The notebook can then be opened in Visual Studio Code with the Python and Jupyter extensions installed.
 
 ## Dataset
 
