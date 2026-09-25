@@ -65,7 +65,7 @@ Generative AI was used for proofreading and providing general programming guidan
 Clone the repository:
 
 ```bash
-git clone [https://github.com/arythegoat/EEG-analsis-pipeline.git](https://github.com/arythegoat/EEG-analysis-pipeline.git)
+git clone [https://github.com/aryanmorarji/EEG-analsis-pipeline.git](https://github.com/aryanmorarji/EEG-analysis-pipeline.git)
 cd EEG-analysis-pipeline
 ```
 
