@@ -4,7 +4,7 @@
 
 This project presents an independent analysis of electroencephalography (EEG) data using Python and MNE-Python. The analysis investigates the classic Berger effect: the change in posterior alpha-band activity between eyes-closed and eyes-open conditions.
 
-The project was completed as an introduction to EEG signal processing and to one component of a broader closed-loop neuromodulation pipeline.
+This personal project was undertaken as an introduction to EEG signal processing. It provided practical experience with data loading, preprocessing, spectral analysis, and visualisation, while developing a foundation for future work in neural signal processing and closed-loop neuromodulation.
 
 ## Objectives
 
@@ -33,7 +33,7 @@ The notebook includes the following stages:
 
 ## Main finding
 
-The analysis investigates whether alpha-band activity, particularly over posterior electrodes, is stronger during the eyes-closed condition than during the eyes-open condition.
+The analysis found that alpha-band activity, particularly over posterior electrodes, is stronger in this subject during the eyes-closed condition than during the eyes-open condition.
 
 This pattern is consistent with the Berger effect, in which posterior alpha activity is typically more prominent when the eyes are closed and attenuated when the eyes are open.
 
@@ -42,6 +42,7 @@ This pattern is consistent with the Berger effect, in which posterior alpha acti
 - `EEG analysis pipeline.ipynb` — Main Jupyter notebook containing the analysis.
 - `EEG analysis pipeline.html` — HTML export of the notebook for easier reading.
 - `requirements.txt` — Python packages required to run the notebook.
+- `data/subject_01.mat` —   Example EEG recording used in the analysis.
 
 ## Technologies
 
@@ -64,7 +65,7 @@ Generative AI was used for proofreading and providing general programming guidan
 Clone the repository:
 
 ```bash
-git clone [https://github.com/YOUR-USERNAME/YOUR-REPOSITORY-NAME.git](https://github.com/arythegoat/EEG-analysis-pipeline.git)
+git clone [https://github.com/arythegoat/EEG-analsis-pipeline.git](https://github.com/arythegoat/EEG-analysis-pipeline.git)
 cd EEG-analysis-pipeline
 ```
 
@@ -108,11 +109,11 @@ Run the cells in order from beginning to end.
 
 This project uses the EEG Alpha Waves Dataset, which contains EEG recordings from 20 subjects during eyes-open and eyes-closed resting-state conditions. 
 
-The dataset is available:
+The dataset is available at:
 
 [EEG Alpha Waves Dataset](https://doi.org/10.5281/zenodo.2605110)
 
-The full dataset is not included in this repository. However, the recording used for the initial analysis (patient_01) is included as an example input. Additional participants can be downloaded from the official dataset source and processed using the same workflow.
+The full dataset is not included in this repository. However, the recording used for the initial analysis (subject_01) is included as an example input. Additional participants can be downloaded from the official dataset source and processed using the same workflow.
 
 ## Dataset instructions
 
@@ -134,11 +135,11 @@ The notebook documents the main steps used to process and analyse the EEG Alpha 
 5. Open `EEG analysis pipeline.ipynb`.
 6. Run the cells in order from beginning to end.
 
-The full dataset is hosted externally and is not included in this repository. The dataset source, access instructions, and citation are provided in the Dataset section.
+The dataset source, access instructions, and citation are provided in the Dataset section.
 
 ## Limitations
 
-This project is intended as an educational introduction to EEG analysis. The results should therefore be interpreted with the following limitations in mind:
+This project is intended as a personal and educational introduction to EEG analysis. The results should therefore be interpreted with the following limitations in mind:
 
 - The analysis uses a small subsection of a publicly available dataset rather than data collected  for this project.
 - The analysis represents only the signal-processing component of a complete closed-loop neuromodulation system.
@@ -179,5 +180,5 @@ The associated example code and analysis resources are available in the [py.ALPH
 
 Gramfort, A., Luessi, M., Larson, E., Engemann, D. A., Strohmeier, D., Brodbeck, C., Goj, R., Jas, M., Brooks, T., Parkkonen, L., & Hämäläinen, M. (2013). MEG and EEG data analysis with MNE-Python. *Frontiers in Neuroscience, 7*, 267. https://doi.org/10.3389/fnins.2013.00267
 
-https://mne.tools/stable/index.html
+[MNE-Pthon documentation](https://mne.tools/stable/index.html)
 
