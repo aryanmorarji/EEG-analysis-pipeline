@@ -26,35 +26,25 @@ def load_subject(
     ch_names: Optional[list[str]] = None,
     sfreq: Optional[float] = None,
     signal_key: str = "SIGNAL",
-) -> mne.io.Raw:
+) -> tuple[mne.io.Raw, np.ndarray, np.ndarray]:
     """
-    Load EEG data for a single subject and return an MNE Raw object.
+    Load EEG data and condition triggers for a single subject.
 
     This function assumes the .mat file contains a 'SIGNAL' array of shape
     (n_samples, 19) with the following columns:
         - column 0: time vector
         - columns 1-16: 16 EEG channels
-        - columns 17-18: event metadata (eyes open/closed markers)
-
-    Parameters
-    ----------
-    subject_id : str
-        Subject identifier, e.g. "subject_01". The function expects a file
-        named "{subject_id}.mat" in `data_dir`.
-    data_dir : str | Path | None
-        Path to the data directory. If None, uses the `data/` folder in the
-        same directory as this module.
-    ch_names : list[str] | None
-        Optional list of channel names. If None, uses DEFAULT_CH_NAMES.
-    sfreq : float | None
-        Optional sampling frequency (Hz). If None, uses DEFAULT_SFREQ.
-    signal_key : str
-        Key in the .mat file that contains the EEG data array.
+        - column 17: eyes-closed trigger
+        - column 18: eyes-open trigger
 
     Returns
     -------
     raw : mne.io.Raw
-        MNE Raw object containing the EEG data (16 channels).
+        MNE Raw object containing the 16 EEG channels.
+    eyes_closed_trigger : np.ndarray
+        1D trigger array marking eyes-closed blocks.
+    eyes_open_trigger : np.ndarray
+        1D trigger array marking eyes-open blocks.
     """
     if ch_names is None:
         ch_names = DEFAULT_CH_NAMES
@@ -93,6 +83,9 @@ def load_subject(
     eeg_data = signal[:, 1:17]  # shape: [n_samples, 16]
     data = eeg_data.T  # shape: [16, n_samples]
 
+    eyes_closed_trigger = np.asarray(signal[:, 17]).squeeze()
+    eyes_open_trigger = np.asarray(signal[:, 18]).squeeze()
+
     if data.shape[0] != len(ch_names):
         raise ValueError(
             f"Number of channels in data ({data.shape[0]}) does not match "
@@ -107,4 +100,85 @@ def load_subject(
 
     raw = mne.io.RawArray(data, info, first_samp=0, copy="auto")
 
-    return raw
+    return raw, eyes_closed_trigger, eyes_open_trigger
+
+def preprocess_raw(
+    raw: mne.io.Raw,
+    l_freq: float = 1.0,
+    h_freq: float = 40.0,
+    notch_freq: float | None = 50.0,
+) -> mne.io.Raw:
+    """
+    Apply bandpass and optional mains-noise filtering to EEG data.
+    """
+    raw_filtered = raw.copy()
+    raw_filtered.filter(l_freq=l_freq, h_freq=h_freq, picks="eeg", verbose=False)
+
+    if notch_freq is not None:
+        raw_filtered.notch_filter(freqs=notch_freq, picks="eeg", verbose=False)
+
+    return raw_filtered
+
+
+def extract_events(
+    eyes_closed_trigger: np.ndarray,
+    eyes_open_trigger: np.ndarray,
+) -> np.ndarray:
+    """
+    Create an MNE-compatible events array from condition trigger arrays.
+
+    Parameters
+    ----------
+    eyes_closed_trigger : np.ndarray
+        1D array where non-zero samples mark the onset of an eyes-closed block.
+    eyes_open_trigger : np.ndarray
+        1D array where non-zero samples mark the onset of an eyes-open block.
+
+    Returns
+    -------
+    events : np.ndarray, shape (n_events, 3)
+        MNE events array. Columns are:
+            0: onset sample index
+            1: previous trigger value
+            2: event ID (1 = eyes closed, 2 = eyes open)
+    """
+    closed_onsets = np.flatnonzero(eyes_closed_trigger)
+    open_onsets = np.flatnonzero(eyes_open_trigger)
+
+    if len(closed_onsets) == 0 or len(open_onsets) == 0:
+        raise ValueError("No event onsets found in one or both trigger arrays.")
+
+    closed_events = np.column_stack((
+        closed_onsets,
+        np.zeros(len(closed_onsets), dtype=int),
+        np.ones(len(closed_onsets), dtype=int),
+    ))
+
+    open_events = np.column_stack((
+        open_onsets,
+        np.zeros(len(open_onsets), dtype=int),
+        np.full(len(open_onsets), 2, dtype=int),
+    ))
+
+    events = np.vstack((closed_events, open_events))
+
+    # MNE expects events ordered by sample index.
+    return events[np.argsort(events[:, 0])]
+
+def make_epochs(
+    raw: mne.io.Raw,
+    events: np.ndarray,
+    event_id: dict[str, int],
+    epoch_length: float = 10.0,
+) -> mne.Epochs:
+    """Create equal-length EEG epochs from event onsets."""
+    return mne.Epochs(
+        raw,
+        events,
+        event_id=event_id,
+        tmin=0.0,
+        tmax=epoch_length,
+        baseline=None,
+        preload=True,
+        verbose=False,
+    )
