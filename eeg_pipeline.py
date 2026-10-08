@@ -182,3 +182,74 @@ def make_epochs(
         preload=True,
         verbose=False,
     )
+
+def compute_alpha_power(
+    epochs: mne.Epochs,
+    alpha_low: float = 8.0,
+    alpha_high: float = 12.0,
+    picks: str | list[str] = "eeg",
+) -> dict[str, float]:
+    """
+    Compute mean alpha-band power for each condition.
+
+    Returns
+    -------
+    dict[str, float]
+        Mean alpha power for each condition.
+    """
+    alpha_power = {}
+
+    for condition in epochs.event_id:
+        condition_epochs = epochs[condition]
+
+        spectrum = condition_epochs.compute_psd(
+            method="welch",
+            fmin=alpha_low,
+            fmax=alpha_high,
+            picks=picks,
+            verbose=False,
+        )
+
+        psds, freqs = spectrum.get_data(return_freqs=True)
+
+        # psds shape: (n_epochs, n_channels, n_freqs)
+        alpha_power[condition] = float(np.mean(psds))
+
+    return alpha_power
+
+def inspect_and_mark_bad_channels(
+    raw: mne.io.Raw,
+    bad_channels: list[str] | None = None,
+    show_plot: bool = True,
+) -> mne.io.Raw:
+    """Inspect EEG channels and optionally mark bad channels.
+
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        EEG recording to inspect.
+    bad_channels : list[str] | None
+        Channel names to mark as bad. If None, keeps existing bad channels.
+    show_plot : bool
+        Whether to display an interactive raw-data plot for inspection.
+
+    Returns
+    -------
+    mne.io.Raw
+        Copy of the input with the selected channels marked bad.
+    """
+    raw = raw.copy()
+
+    if bad_channels is not None:
+        raw.info["bads"] = bad_channels
+
+    if show_plot:
+        raw.plot(
+            n_channels=len(raw.ch_names),
+            scalings="auto",
+            block=True,
+            title="Inspect EEG channels: click a channel name to mark/unmark bad",
+        )
+
+    print("Bad channels:", raw.info["bads"])
+    return raw
