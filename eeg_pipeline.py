@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import matplotlib.pyplot as plt
 import scipy.io as sio
 import mne
 
@@ -18,7 +19,6 @@ DEFAULT_CH_NAMES = [
 ]
 
 DEFAULT_SFREQ = 512.0  # Hz
-
 
 def load_subject(
     subject_id: str,
@@ -102,15 +102,50 @@ def load_subject(
 
     return raw, eyes_closed_trigger, eyes_open_trigger
 
+def inspect_and_mark_bad_channels(
+    raw: mne.io.Raw,
+    bad_channels: list[str] | None = None,
+    show_plot: bool = True,
+) -> mne.io.Raw:
+    """Inspect EEG channels and optionally mark bad channels.
+
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        EEG recording to inspect.
+    bad_channels : list[str] | None
+        Channel names to mark as bad. If None, keeps existing bad channels.
+    show_plot : bool
+        Whether to display an interactive raw-data plot for inspection.
+
+    Returns
+    -------
+    mne.io.Raw
+        Copy of the input with the selected channels marked bad.
+    """
+    raw = raw.copy()
+
+    if bad_channels is not None:
+        raw.info["bads"] = bad_channels
+
+    if show_plot:
+        raw.plot(
+            n_channels=len(raw.ch_names),
+            scalings="auto",
+            block=True,
+            title="Inspect EEG channels: click a channel name to mark/unmark bad",
+        )
+
+    print("Bad channels:", raw.info["bads"])
+    return raw
+
 def preprocess_raw(
     raw: mne.io.Raw,
     l_freq: float = 1.0,
     h_freq: float = 40.0,
     notch_freq: float | None = 50.0,
 ) -> mne.io.Raw:
-    """
-    Apply bandpass and optional mains-noise filtering to EEG data.
-    """
+    """Apply bandpass and optional mains-noise filtering to EEG data."""
     raw_filtered = raw.copy()
     raw_filtered.filter(l_freq=l_freq, h_freq=h_freq, picks="eeg", verbose=False)
 
@@ -118,7 +153,6 @@ def preprocess_raw(
         raw_filtered.notch_filter(freqs=notch_freq, picks="eeg", verbose=False)
 
     return raw_filtered
-
 
 def extract_events(
     eyes_closed_trigger: np.ndarray,
@@ -217,39 +251,83 @@ def compute_alpha_power(
 
     return alpha_power
 
-def inspect_and_mark_bad_channels(
-    raw: mne.io.Raw,
-    bad_channels: list[str] | None = None,
-    show_plot: bool = True,
-) -> mne.io.Raw:
-    """Inspect EEG channels and optionally mark bad channels.
+def plot_alpha_power_comparison(
+    alpha_power: dict[str, float],
+    title: str = "Mean alpha-band power",
+) -> plt.Figure:
+    """Plot mean alpha power for each experimental condition."""
+    conditions = list(alpha_power.keys())
+    values = list(alpha_power.values())
 
-    Parameters
-    ----------
-    raw : mne.io.Raw
-        EEG recording to inspect.
-    bad_channels : list[str] | None
-        Channel names to mark as bad. If None, keeps existing bad channels.
-    show_plot : bool
-        Whether to display an interactive raw-data plot for inspection.
+    fig, ax = plt.subplots(figsize=(6, 4))
 
-    Returns
-    -------
-    mne.io.Raw
-        Copy of the input with the selected channels marked bad.
-    """
-    raw = raw.copy()
+    ax.bar(conditions, values, color=["#4C72B0", "#DD8452"])
 
-    if bad_channels is not None:
-        raw.info["bads"] = bad_channels
+    ax.set_title(title)
+    ax.set_xlabel("Condition")
+    ax.set_ylabel("Mean alpha power (V²/Hz)")
+    ax.grid(axis="y", alpha=0.3)
 
-    if show_plot:
-        raw.plot(
-            n_channels=len(raw.ch_names),
-            scalings="auto",
-            block=True,
-            title="Inspect EEG channels: click a channel name to mark/unmark bad",
+    fig.tight_layout()
+    plt.show()
+
+    return fig
+
+def plot_condition_psds(
+    epochs: mne.Epochs,
+    picks: str | list[str] = "eeg",
+    fmin: float = 1.0,
+    fmax: float = 40.0,
+    alpha_low: float = 8.0,
+    alpha_high: float = 12.0,
+) -> plt.Figure:
+    """Plot mean PSDs for eyes-closed and eyes-open on shared axes."""
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    colours = {
+        "eyes_closed": "#4C72B0",
+        "eyes_open": "#DD8452",
+    }
+
+    for condition in epochs.event_id:
+        spectrum = epochs[condition].compute_psd(
+            method="welch",
+            fmin=fmin,
+            fmax=fmax,
+            picks=picks,
+            verbose=False,
         )
 
-    print("Bad channels:", raw.info["bads"])
-    return raw
+        psds, freqs = spectrum.get_data(return_freqs=True)
+
+        # PSD shape: (n_epochs, n_channels, n_frequency_bins).
+        mean_psd = psds.mean(axis=(0, 1))
+
+        # Convert V²/Hz to dB for an interpretable PSD scale.
+        mean_psd_db = 10 * np.log10(mean_psd)
+
+        ax.plot(
+            freqs,
+            mean_psd_db,
+            label=condition.replace("_", " ").title(),
+            color=colours.get(condition),
+            linewidth=2,
+        )
+
+    ax.axvspan(
+        alpha_low,
+        alpha_high,
+        color="gold",
+        alpha=0.18,
+        label="Alpha band (8–12 Hz)",
+    )
+
+    ax.set_title("Average power spectral density by condition")
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Power (dB re 1 V²/Hz)")
+    ax.set_xlim(fmin, fmax)
+    ax.grid(alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+
+    return fig
