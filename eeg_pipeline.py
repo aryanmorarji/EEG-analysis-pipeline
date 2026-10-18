@@ -331,3 +331,98 @@ def plot_condition_psds(
     fig.tight_layout()
 
     return fig
+
+def run_full_pipeline(
+    subject_id: str,
+    *,
+    data_dir: str | Path | None = None,
+    bad_channels: list[str] | None = None,
+    inspect_channels: bool = False,
+    l_freq: float = 1.0,
+    h_freq: float = 40.0,
+    notch_freq: float | None = 50.0,
+    epoch_length: float = 10.0,
+    alpha_low: float = 8.0,
+    alpha_high: float = 12.0,
+    posterior_channels: list[str] | None = None,
+) -> dict:
+    """Run the complete EEG preprocessing and alpha-power pipeline.
+
+    Returns the processed data and alpha-power summaries for one subject.
+    """
+    if posterior_channels is None:
+        posterior_channels = ["P7", "P3", "PZ", "P4", "P8", "O1", "OZ", "O2"]
+
+    # Load continuous 16-channel EEG and its two trigger arrays.
+    raw, closed_trigger, open_trigger = load_subject(
+        subject_id,
+        data_dir=data_dir,
+    )
+
+    # Optional manual visual review. Any channels selected in the viewer
+    # will be stored in raw.info["bads"].
+    raw_checked = inspect_and_mark_bad_channels(
+        raw,
+        bad_channels=bad_channels,
+        show_plot=inspect_channels,
+    )
+
+    # Filter EEG.
+    raw_clean = preprocess_raw(
+        raw_checked,
+        l_freq=l_freq,
+        h_freq=h_freq,
+        notch_freq=notch_freq,
+    )
+
+    # Create MNE events, then 10-second condition-labelled epochs.
+    events = extract_events(closed_trigger, open_trigger)
+
+    event_id = {
+        "eyes_closed": 1,
+        "eyes_open": 2,
+    }
+
+    epochs = make_epochs(
+        raw_clean,
+        events,
+        event_id=event_id,
+        epoch_length=epoch_length,
+    )
+
+    # Compute condition summaries using all retained EEG channels and
+    # the posterior subset.
+    alpha_power_all = compute_alpha_power(
+        epochs,
+        alpha_low=alpha_low,
+        alpha_high=alpha_high,
+        picks="eeg",
+    )
+
+    available_posterior = [
+        channel
+        for channel in posterior_channels
+        if channel in epochs.ch_names
+        and channel not in epochs.info["bads"]
+    ]
+
+    if not available_posterior:
+        raise ValueError("No requested posterior channels are available for analysis.")
+
+    alpha_power_posterior = compute_alpha_power(
+        epochs,
+        alpha_low=alpha_low,
+        alpha_high=alpha_high,
+        picks=available_posterior,
+    )
+
+    return {
+        "raw": raw,
+        "raw_checked": raw_checked,
+        "raw_clean": raw_clean,
+        "events": events,
+        "epochs": epochs,
+        "alpha_power_all": alpha_power_all,
+        "alpha_power_posterior": alpha_power_posterior,
+        "posterior_channels": available_posterior,
+    }
